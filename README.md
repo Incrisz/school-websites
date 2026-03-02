@@ -26,7 +26,6 @@ schools-website/
 ├── .dockerignore                 # Files to exclude from Docker build
 ├── .gitignore                    # Git ignore rules
 ├── Dockerfile                    # Docker image definition
-├── docker-compose.yml            # Docker Compose orchestration
 ├── entrypoint.sh                 # Container startup script
 ├── nginx/
 │   └── nginx.conf.template       # Nginx configuration template
@@ -66,15 +65,7 @@ schools-website/
     └── index.html
 ```
 
-### 3. Generate Dockerfile (auto-generates COPY commands for all domains)
-
-```bash
-./generate-dockerfile.sh
-```
-
-This scans your `.env` file and generates a Dockerfile with COPY commands for each domain.
-
-### 4. Build the Docker image
+### 3. Build the Docker image
 
 ```bash
 make build
@@ -83,7 +74,7 @@ make build
 docker build -t schools-website .
 ```
 
-### 5. Run the container
+### 4. Run the container
 
 ```bash
 # Using Makefile (recommended)
@@ -98,7 +89,9 @@ docker run -d \
   schools-website
 ```
 
-### 6. Test the setup
+At startup, `entrypoint.sh` copies each configured domain directory into `/var/www/<domain>` and generates nginx server blocks from `DOMAINS`.
+
+### 5. Test the setup
 
 ```bash
 # View logs
@@ -127,20 +120,11 @@ mkdir -p newschool.com
 # Add your website files to newschool.com/
 ```
 
-### Step 3: Regenerate Dockerfile and rebuild
+### Step 3: Rebuild and run
 
 ```bash
-./generate-dockerfile.sh
 make build
 make run
-```
-
-Or use the repo manager script:
-
-```bash
-./manage-repos.sh clone https://github.com/school/website.git newschool.com
-./generate-dockerfile.sh
-make build
 ```
 
 ## Advanced Configuration
@@ -284,12 +268,19 @@ cd elbethelacademy.com
 git pull
 ```
 
-2. Reload nginx (it will serve the updated files):
+2. Rebuild and recreate the container:
 ```bash
-docker-compose exec nginx nginx -s reload
+docker build -t schools-website .
+docker rm -f schools-website || true
+docker run -d \
+  -e DOMAINS="$DOMAINS" \
+  -p 80:80 \
+  -p 443:443 \
+  --name schools-website \
+  schools-website
 ```
 
-No restart needed - nginx will immediately serve the updated files!
+The websites are baked into the image, so rebuild is required after content changes.
 
 ## Production Deployment
 

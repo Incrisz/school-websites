@@ -2,6 +2,53 @@
 
 set -e
 
+# Resolve DOMAINS from environment or fallback .env in image source root.
+resolve_domains() {
+    local source_root="${SITE_SOURCE_ROOT:-/opt/sites-src}"
+
+    if [ -n "${DOMAINS:-}" ]; then
+        log "Domains configuration: $DOMAINS"
+        return
+    fi
+
+    if [ -f "$source_root/.env" ]; then
+        DOMAINS="$(grep -m1 '^DOMAINS=' "$source_root/.env" | cut -d'=' -f2- | tr -d '"')"
+    fi
+
+    if [ -z "${DOMAINS:-}" ]; then
+        log "ERROR: DOMAINS is not set and no DOMAINS value was found in $source_root/.env"
+        exit 1
+    fi
+
+    export DOMAINS
+    log "DOMAINS not provided. Loaded from $source_root/.env: $DOMAINS"
+}
+
+# Copy configured domain folders into /var/www for nginx roots.
+stage_website_files() {
+    local source_root="${SITE_SOURCE_ROOT:-/opt/sites-src}"
+    local target_root="/var/www"
+
+    mkdir -p "$target_root"
+    rm -rf "$target_root"/*
+
+    IFS=',' read -ra domain_array <<< "$DOMAINS"
+    for domain in "${domain_array[@]}"; do
+        domain="$(echo "$domain" | xargs)"
+        [ -n "$domain" ] || continue
+
+        if [ ! -d "$source_root/$domain" ]; then
+            log "ERROR: Domain directory not found: $source_root/$domain"
+            exit 1
+        fi
+
+        mkdir -p "$target_root/$domain"
+        cp -a "$source_root/$domain/." "$target_root/$domain/"
+    done
+
+    log "Website files staged in $target_root"
+}
+
 # Generate nginx configuration from environment variables
 generate_nginx_config() {
     local domains="${DOMAINS}"
@@ -29,9 +76,6 @@ EOF
             echo "Warning: Invalid domain, skipping..."
             continue
         fi
-        
-        # Remove www prefix if present for server_name, but keep it for matching
-        domain_without_www="${domain#www.}"
         
         cat >> "$config_file" << EOF
 server {
@@ -90,14 +134,8 @@ log() {
 
 log "Starting schools-website nginx container..."
 
-# Validate that DOMAINS is set
-if [ -z "$DOMAINS" ]; then
-    log "ERROR: DOMAINS environment variable not set!"
-    log "Please set DOMAINS in .env file with format: 'domain1:/path1 domain2:/path2'"
-    exit 1
-fi
-
-log "Domains configuration: $DOMAINS"
+resolve_domains
+stage_website_files
 
 # Generate nginx config
 generate_nginx_config
