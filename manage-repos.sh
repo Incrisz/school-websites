@@ -104,6 +104,7 @@ clone_repo() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         add_domain_to_env "$domain"
+        log_info "Remember to run: ./generate-dockerfile.sh"
     fi
 }
 
@@ -246,6 +247,7 @@ main() {
             ;;
         add-domain)
             add_domain_to_env "$2"
+            log_info "Run generate-dockerfile.sh to update the Dockerfile before building"
             ;;
         list)
             list_domains

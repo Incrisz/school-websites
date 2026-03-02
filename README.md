@@ -41,47 +41,69 @@ schools-website/
 └── logs/                         # Nginx logs (created on first run)
 ```
 
-## Quick Start
+## Quick Start (Docker-only, no Compose)
 
 ### 1. Update .env file with your domains
 
-Edit `.env` and add your domain names as a comma-separated array (paths are auto-generated as `/var/www/{domain}`):
+Edit `.env` and add your domain names as a comma-separated array:
 
 ```env
-DOMAINS="elbethelacademy.com, hilltop.com.ng, schoolname.com"
+DOMAINS="elbethelacademy.com, hilltop.com.ng, abssmx.com.ng"
 ```
 
 **Format:** `domain1, domain2, domain3` (comma-separated with optional spaces)
 
-**Note:** Each domain is automatically mapped to `/var/www/{domain}` inside the container
-
 ### 2. Ensure website files are in correct directories
 
 ```bash
-# Each domain should have its website files
+# Each domain should have its website files in the workspace
 schools-website/
 ├── elbethelacademy.com/
 │   └── index.html
-└── hilltop.com.ng/
+├── hilltop.com.ng/
+│   └── index.html
+└── abssmx.com.ng/
     └── index.html
 ```
 
-### 3. Build and start the container
+### 3. Generate Dockerfile (auto-generates COPY commands for all domains)
 
 ```bash
-# Build the Docker image
-docker-compose build
-
-# Start the container
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
+./generate-dockerfile.sh
 ```
 
-### 4. Test the setup
+This scans your `.env` file and generates a Dockerfile with COPY commands for each domain.
+
+### 4. Build the Docker image
 
 ```bash
+make build
+
+# Or manually
+docker build -t schools-website .
+```
+
+### 5. Run the container
+
+```bash
+# Using Makefile (recommended)
+make run
+
+# Or manually with docker
+docker run -d \
+  -e DOMAINS="elbethelacademy.com, hilltop.com.ng, abssmx.com.ng" \
+  -p 80:80 \
+  -p 443:443 \
+  --name schools-website \
+  schools-website
+```
+
+### 6. Test the setup
+
+```bash
+# View logs
+make logs
+
 # Test locally (add to /etc/hosts if needed)
 echo "127.0.0.1 elbethelacademy.com hilltop.com.ng" | sudo tee -a /etc/hosts
 
@@ -92,27 +114,33 @@ curl -H "Host: hilltop.com.ng" http://localhost
 
 ## Adding New Domains
 
-### Method 1: Using .env (Recommended)
+### Step 1: Add the domain to .env
 
-1. Update `.env` file:
 ```env
 DOMAINS="elbethelacademy.com, hilltop.com.ng, newschool.com"
 ```
 
-2. Restart the container:
+### Step 2: Create the domain directory with website files
+
 ```bash
-docker-compose restart
+mkdir -p newschool.com
+# Add your website files to newschool.com/
 ```
 
-### Method 2: Update docker-compose.yml volumes
+### Step 3: Regenerate Dockerfile and rebuild
 
-Add the new website directory as a volume:
+```bash
+./generate-dockerfile.sh
+make build
+make run
+```
 
-```yaml
-volumes:
-  - ./elbethelacademy.com:/var/www/elbethelacademy.com:ro
-  - ./hilltop.com.ng:/var/www/hilltop.com.ng:ro
-  - ./newschool.com:/var/www/newschool.com:ro
+Or use the repo manager script:
+
+```bash
+./manage-repos.sh clone https://github.com/school/website.git newschool.com
+./generate-dockerfile.sh
+make build
 ```
 
 ## Advanced Configuration

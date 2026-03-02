@@ -1,10 +1,11 @@
 FROM nginx:alpine
 
-# Install bash and envsubst (already included in nginx:alpine, but ensure it's available)
+# Install bash
 RUN apk add --no-cache bash
 
 # Create directories for website files
 RUN mkdir -p /var/www
+
 
 # Copy the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
